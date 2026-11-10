@@ -12,7 +12,8 @@ data class ApiErrorEnvelope(
 data class ApiErrorBody(
     val code: String,
     val message: String,
-    val pendingDeviceId: String? = null
+    val pendingDeviceId: String? = null,
+    val retryAfterSeconds: Int? = null
 )
 
 @Serializable

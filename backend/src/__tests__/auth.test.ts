@@ -371,6 +371,13 @@ describe("System Utility Backend — Auth, Owner Device Approval, Audit & Two-Us
       env
     );
     expect(fifthRes.status).toBe(429);
+    expect(fifthRes.headers.get("Retry-After")).toBe("30");
+    const lockedBody = (await fifthRes.json()) as {
+      error: { code: string; message: string; retryAfterSeconds?: number };
+    };
+    expect(lockedBody.error.code).toBe("RATE_LIMITED");
+    expect(lockedBody.error.retryAfterSeconds).toBe(30);
+    expect(lockedBody.error.message).toContain("30s");
   });
 
   it("rotates password via account recovery code and revokes all prior sessions and devices", async () => {

@@ -22,7 +22,8 @@ suspend fun <T> safeApiCall(call: suspend () -> Response<T>): AppResult<T> {
             AppResult.Error(
                 code = parsed?.error?.code ?: "HTTP_${response.code()}",
                 message = parsed?.error?.message ?: "Request failed (${response.code()})",
-                retryAfterSeconds = response.headers()["Retry-After"]?.toIntOrNull(),
+                retryAfterSeconds = response.headers()["Retry-After"]?.toIntOrNull()
+                    ?: parsed?.error?.retryAfterSeconds,
                 pendingDeviceId = parsed?.error?.pendingDeviceId
             )
         }

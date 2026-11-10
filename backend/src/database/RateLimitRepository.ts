@@ -1,7 +1,7 @@
 import { LoginAttemptRow } from "../shared/types";
 
-const WINDOW_MS = 15 * 60 * 1000;
-const LOCKOUT_MS = 15 * 60 * 1000;
+const WINDOW_MS = 5 * 60 * 1000;
+const LOCKOUT_MS = 30 * 1000;
 const MAX_ATTEMPTS = 5;
 
 export interface RateLimitStatus {
@@ -41,7 +41,8 @@ export class RateLimitRepository {
         .bind(key)
         .first<LoginAttemptRow>();
 
-      if (!row || now - row.first_attempt_at > WINDOW_MS) {
+      const expiredLockout = row?.locked_until !== null && row?.locked_until !== undefined && row.locked_until <= now;
+      if (!row || now - row.first_attempt_at > WINDOW_MS || expiredLockout) {
         await this.db
           .prepare(
             `INSERT INTO login_attempts (rate_key, failed_count, first_attempt_at, locked_until)

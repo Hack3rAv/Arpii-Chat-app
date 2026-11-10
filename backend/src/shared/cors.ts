@@ -15,11 +15,15 @@ export function securityHeaders(allowedOrigin: string): Record<string, string> {
 export function jsonResponse(
   data: unknown,
   status: number,
-  allowedOrigin = "*"
+  allowedOrigin = "*",
+  extraHeaders?: Record<string, string>
 ): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: securityHeaders(allowedOrigin),
+    headers: {
+      ...securityHeaders(allowedOrigin),
+      ...(extraHeaders ?? {}),
+    },
   });
 }
 
@@ -27,7 +31,8 @@ export function errorResponse(
   code: string,
   message: string,
   status: number,
-  allowedOrigin = "*"
+  allowedOrigin = "*",
+  extraHeaders?: Record<string, string>
 ): Response {
-  return jsonResponse({ error: { code, message } }, status, allowedOrigin);
+  return jsonResponse({ error: { code, message } }, status, allowedOrigin, extraHeaders);
 }

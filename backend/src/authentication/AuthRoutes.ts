@@ -29,7 +29,13 @@ export async function handleAuthAndProfileRoutes(
     const result = await authService.getLoginSalt(parsed.data.username, clientIp);
     return result.ok
       ? jsonResponse(result.data, 200, origin)
-      : errorResponse(result.error.code, result.error.message, result.error.status, origin);
+      : errorResponse(
+          result.error.code,
+          result.error.message,
+          result.error.status,
+          origin,
+          result.error.retryAfterSeconds ? { "Retry-After": String(result.error.retryAfterSeconds) } : undefined
+        );
   }
 
   if (request.method === "POST" && url.pathname === "/api/v1/auth/login") {
@@ -48,10 +54,12 @@ export async function handleAuthAndProfileRoutes(
           code: result.error.code,
           message: result.error.message,
           ...(result.error.pendingDeviceId ? { pendingDeviceId: result.error.pendingDeviceId } : {}),
+          ...(result.error.retryAfterSeconds ? { retryAfterSeconds: result.error.retryAfterSeconds } : {}),
         },
       },
       result.error.status,
-      origin
+      origin,
+      result.error.retryAfterSeconds ? { "Retry-After": String(result.error.retryAfterSeconds) } : undefined
     );
   }
 
@@ -64,7 +72,13 @@ export async function handleAuthAndProfileRoutes(
     const result = await authService.recoverAccount(parsed.data, clientIp);
     return result.ok
       ? jsonResponse(result.data, 200, origin)
-      : errorResponse(result.error.code, result.error.message, result.error.status, origin);
+      : errorResponse(
+          result.error.code,
+          result.error.message,
+          result.error.status,
+          origin,
+          result.error.retryAfterSeconds ? { "Retry-After": String(result.error.retryAfterSeconds) } : undefined
+        );
   }
 
   // Protected Auth, Device Approval, Profile, & Security Audit Routes below
