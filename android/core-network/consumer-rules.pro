@@ -1,0 +1,2 @@
+-keep class com.systemutility.core.network.dto.** { *; }
+-keep interface com.systemutility.core.network.api.** { *; }

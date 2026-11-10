@@ -1,0 +1,4 @@
+-keep class com.systemutility.core.database.entity.** { *; }
+-keep class com.systemutility.core.database.dao.** { *; }
+-keep class * extends androidx.room.RoomDatabase
+-keep class net.zetetic.database.** { *; }

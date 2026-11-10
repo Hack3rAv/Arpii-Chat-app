@@ -1,0 +1,112 @@
+name: Android Release APK
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release version tag (e.g. v1.0.1)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Test, Sign & Publish Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Derive monotonic version metadata
+        id: version
+        shell: bash
+        run: |
+          RAW_TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          CLEAN_VER="${RAW_TAG#v}"
+          BASE_VER="${CLEAN_VER%%-*}"
+          BASE_VER="${BASE_VER%%+*}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VER"
+          MAJOR=${MAJOR:-1}
+          MINOR=${MINOR:-0}
+          PATCH=${PATCH:-0}
+          VERSION_CODE=$(( MAJOR * 10000 + MINOR * 100 + PATCH ))
+          echo "tag=$RAW_TAG" >> "$GITHUB_OUTPUT"
+          echo "version_name=$CLEAN_VER" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare Android release keystore (optional secrets)
+        id: signing
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASS" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASS" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release-keystore.jks"
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "SYSTEM_UTILITY_KEYSTORE_PATH=$RUNNER_TEMP/release-keystore.jks" >> "$GITHUB_ENV"
+          else
+            echo "::warning::ANDROID_KEYSTORE_* secrets not configured; falling back to debug signing (set keystore secrets so updates install in-place without uninstalling)."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Grant execute permission for gradlew
+        working-directory: android
+        run: chmod +x gradlew
+
+      - name: Ensure Android NDK is available for native symbol stripping
+        shell: bash
+        run: |
+          SDK_DIR="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          if [ -z "$(find "$SDK_DIR/ndk" -maxdepth 4 -name 'llvm-strip' 2>/dev/null | head -n1)" ]; then
+            echo "No NDK with llvm-strip found; installing ndk;27.1.12297006..."
+            yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.1.12297006"
+          else
+            echo "Found preinstalled NDK(s):"
+            ls -1 "$SDK_DIR/ndk"
+          fi
+
+      - name: Run Android unit tests and assemble release APKs
+        working-directory: android
+        env:
+          SYSTEM_UTILITY_VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          SYSTEM_UTILITY_VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          SYSTEM_UTILITY_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          SYSTEM_UTILITY_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          SYSTEM_UTILITY_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          ./gradlew testDebugUnitTest assembleRelease --no-daemon \
+            -PSYSTEM_UTILITY_GITHUB_REPO="${{ github.repository }}"
+
+      - name: Generate SHA-256 checksums for release APKs
+        working-directory: android/app/build/outputs/apk/release
+        run: |
+          rm -f checksums.txt
+          sha256sum *.apk > checksums.txt
+          cat checksums.txt
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: System Utility ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/apk/release/checksums.txt

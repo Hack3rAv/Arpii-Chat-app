@@ -1,0 +1,3 @@
+-keep class com.lambdapioneer.argon2kt.** { *; }
+-keep class org.signal.libsignal.** { *; }
+-dontwarn org.signal.libsignal.**

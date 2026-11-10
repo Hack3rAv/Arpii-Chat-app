@@ -1,0 +1,92 @@
+name = "system-utility-backend"
+account_id = "af489b4dae7c64cf5ae95206e0ac2a45"
+main = "src/workers/index.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Top-level defaults (used by `wrangler dev` and default CLI commands)
+[vars]
+ENVIRONMENT = "development"
+ALLOWED_ORIGIN = "https://system-utility.local"
+MAX_UPLOAD_BYTES = "52428800"
+RETENTION_DAYS = "90"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "arpii"
+database_id = "f66221ed-7d73-475a-b65a-548436ecc380"
+migrations_dir = "migrations"
+
+# Existing R2 Bucket in Asia-Pacific (APAC)
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "arpii"
+
+[[durable_objects.bindings]]
+name = "CHAT_COORDINATOR"
+class_name = "ChatCoordinatorDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChatCoordinatorDO"]
+
+# ---------------------------------------------------------------------------
+# Staging Environment (`npx wrangler deploy --env staging`)
+# Reuses the existing `arpii` bindings without creating duplicate resources.
+# Keep staging secrets separate via `wrangler secret put <NAME> --env staging`.
+# ---------------------------------------------------------------------------
+[env.staging]
+name = "system-utility-backend-staging"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+ALLOWED_ORIGIN = "https://staging.system-utility.local"
+MAX_UPLOAD_BYTES = "52428800"
+RETENTION_DAYS = "30"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "arpii"
+database_id = "f66221ed-7d73-475a-b65a-548436ecc380"
+migrations_dir = "migrations"
+
+[[env.staging.r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "arpii"
+
+[[env.staging.durable_objects.bindings]]
+name = "CHAT_COORDINATOR"
+class_name = "ChatCoordinatorDO"
+
+# ---------------------------------------------------------------------------
+# Production Environment (`npx wrangler deploy --env production`)
+# ---------------------------------------------------------------------------
+[env.production]
+name = "system-utility-backend"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+ALLOWED_ORIGIN = "https://system-utility.local"
+MAX_UPLOAD_BYTES = "52428800"
+RETENTION_DAYS = "90"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "arpii"
+database_id = "f66221ed-7d73-475a-b65a-548436ecc380"
+migrations_dir = "migrations"
+
+[[env.production.r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "arpii"
+
+[[env.production.durable_objects.bindings]]
+name = "CHAT_COORDINATOR"
+class_name = "ChatCoordinatorDO"
+
+# Required Worker Secrets (MUST be set via `wrangler secret put <NAME> --env <env>`, NEVER committed):
+# - AUTH_PEPPER        : 32+ byte random hex/base64 secret for anti-enumeration fake salts & download grant HMACs
+# - CF_TURN_KEY_ID     : Cloudflare Realtime TURN Key ID (from Calls/Realtime -> TURN Keys; NOT the Realtime App ID)
+# - CF_TURN_API_TOKEN  : Cloudflare Realtime TURN Key API Token (used to mint short-lived ICE credentials)
+#
+# Note: Firebase (FCM) and Google Drive backup are excluded/deferred in this release.

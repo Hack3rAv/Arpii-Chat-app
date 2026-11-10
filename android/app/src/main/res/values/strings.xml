@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">System Utility</string>
+    <string name="channel_messages_name">Service Updates</string>
+    <string name="channel_calls_name">Priority Connection Alerts</string>
+    <string name="channel_recording_name">Active Media Recording</string>
+</resources>
